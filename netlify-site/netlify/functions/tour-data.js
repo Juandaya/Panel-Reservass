@@ -1,24 +1,23 @@
-const { getStore } = require("@netlify/blobs");
+import { getStore } from "@netlify/blobs";
 
-exports.handler = async (event) => {
-  const id = event.queryStringParameters && event.queryStringParameters.id;
-  if (!id) return { statusCode: 400, body: "Missing id" };
+export default async (req) => {
+  const url = new URL(req.url);
+  const id = url.searchParams.get("id");
+  if (!id) return new Response("Missing id", { status: 400 });
   const store = getStore("tour-data");
 
-  if (event.httpMethod === "GET") {
+  if (req.method === "GET") {
     const data = await store.get(id, { type: "json" });
-    if (!data) return { statusCode: 404, body: "Tour not found" };
-    return { statusCode: 200, body: JSON.stringify(data) };
+    if (!data) return new Response("Tour not found", { status: 404 });
+    return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
   }
 
-  if (event.httpMethod === "POST") {
-    let body = {};
-    try { body = JSON.parse(event.body || "{}"); } catch (e) {
-      return { statusCode: 400, body: "Invalid JSON" };
-    }
+  if (req.method === "POST") {
+    const body = await req.json().catch(() => null);
+    if (!body) return new Response("Invalid JSON", { status: 400 });
     await store.setJSON(id, body);
-    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+    return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
   }
 
-  return { statusCode: 405, body: "Method not allowed" };
+  return new Response("Method not allowed", { status: 405 });
 };
