@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panel de reservas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+
+:root{
+  --bg:#f6f6f4; --surface:#ffffff; --surface-2:#f0f0ee;
+  --border:#e3e2dd; --text:#181816; --text-2:#68675f; --text-3:#9b9a91;
+  --accent:#2563eb;
+  --nada-bg:#eeeeec; --nada-text:#84837a;
+  --res-bg:#fdecc8; --res-text:#8a5a05;
+  --pag-bg:#dcf5e5; --pag-text:#137a3f;
+  --dec-bg:#f7dede; --dec-text:#9c3b3b;
+  --danger:#c0392b;
+  --radius:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#151513; --surface:#1e1e1c; --surface-2:#262623;
+    --border:#34342f; --text:#f2f1ec; --text-2:#a6a59b; --text-3:#77766c;
+    --accent:#5b9dff;
+    --nada-bg:#2c2c28; --nada-text:#8f8e84;
+    --res-bg:#453308; --res-text:#f0b84a;
+    --pag-bg:#0f3320; --pag-text:#5fd996;
+    --dec-bg:#3a1d1d; --dec-text:#f28b8b;
+    --danger:#ff6b5e;
+  }
+}
+*{box-sizing:border-box;}
+body{margin:0;}
+#app{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg); color:var(--text);
+  max-width:520px; margin:0 auto; padding:16px 14px 60px;
+  line-height:1.45;
+}
+h1{font-size:19px; font-weight:600; margin:0 0 2px;}
+.sub{font-size:13px; color:var(--text-2); margin:0 0 16px;}
+.metrics{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:18px;}
+.metric{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px;}
+.metric .label{font-size:11.5px; color:var(--text-2); margin-bottom:2px;}
+.metric .value{font-size:19px; font-weight:600;}
+.metric .value.small{font-size:16px;}
+
+.section-title{font-size:13px; font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.03em; margin:20px 0 8px;}
+.pctnote{font-size:11px; color:var(--text-3); margin:-10px 0 16px;}
+
+button.primary{
+  background:var(--accent); color:#fff; border:none; border-radius:var(--radius);
+  padding:9px 14px; font-size:14px; font-weight:500; cursor:pointer;
+}
+button.ghost{
+  background:transparent; color:var(--accent); border:1px solid var(--border);
+  border-radius:var(--radius); padding:8px 12px; font-size:13px; cursor:pointer;
+}
+button.icon{
+  background:none; border:none; color:var(--text-3); font-size:15px; cursor:pointer; padding:4px 6px;
+}
+button.icon:hover{color:var(--danger);}
+input{
+  width:100%; font-size:14px; padding:9px 10px; border-radius:8px;
+  border:1px solid var(--border); background:var(--surface); color:var(--text);
+}
+.form-card{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:12px; margin-bottom:14px; display:none; gap:8px; flex-direction:column;
+}
+.form-card.open{display:flex;}
+.form-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:2px;}
+
+.person-card{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  margin-bottom:8px; overflow:hidden;
+}
+.person-row{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:12px 12px; cursor:pointer;
+}
+.person-row .pname{font-size:14.5px; font-weight:500;}
+.pname-wrap{display:flex; align-items:center; gap:6px;}
+.dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+.dot-red{background:var(--dec-text);}
+.dot-yellow{background:var(--res-text);}
+.dot-green{background:var(--pag-text);}
+.person-right{display:flex; align-items:center; gap:8px;}
+.person-total{font-size:12.5px; color:var(--text-2); font-weight:500;}
+.chevron{color:var(--text-3); font-size:12px; transition:transform .15s;}
+.chevron.open{transform:rotate(90deg);}
+
+.cart{background:var(--surface-2); border-top:1px solid var(--border); display:none;}
+.cart.open{display:block;}
+.cart-item{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:8px 12px;
+}
+.cart-item .aname{font-size:13px;}
+.cart-item .aprice{font-size:11.5px; color:var(--text-3);}
+.status-btn{
+  font-size:12px; font-weight:500; border:none; border-radius:20px;
+  padding:5px 12px; cursor:pointer; min-width:82px; text-align:center;
+}
+.status-select{
+  font-size:12px; font-weight:500; border:none; border-radius:20px;
+  padding:5px 26px 5px 12px; cursor:pointer; min-width:100px; text-align:center;
+  -webkit-appearance:none; appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M1 3l4 4 4-4' stroke='%2384837a' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat:no-repeat; background-position:right 8px center;
+}
+.status-nada{background:var(--nada-bg); color:var(--nada-text);}
+.status-reservado{background:var(--res-bg); color:var(--res-text);}
+.status-pagado{background:var(--pag-bg); color:var(--pag-text);}
+.status-declinado{background:var(--dec-bg); color:var(--dec-text); text-decoration:line-through;}
+
+.empty{
+  text-align:center; color:var(--text-3); font-size:13px; padding:24px 12px;
+  border:1px dashed var(--border); border-radius:var(--radius);
+}
+
+.actionrow{margin-bottom:10px;}
+button.primary.wide, .actionrow button.primary{width:100%; padding:12px; font-size:15px;}
+.actionrow-split{display:flex; gap:8px; margin-bottom:18px;}
+.actionrow-split button{flex:1;}
+
+.savewarning{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+  background:var(--dec-bg); color:var(--dec-text);
+  border-radius:var(--radius); padding:10px 12px; margin-bottom:14px;
+}
+.savewarning-title{font-size:13px; font-weight:600;}
+.savewarning-sub{font-size:11.5px; margin-top:2px; opacity:0.9;}
+.savewarning button.ghost.light{
+  border:1px solid var(--dec-text); color:var(--dec-text); background:transparent;
+  padding:6px 10px; font-size:12px; white-space:nowrap;
+}
+
+.exportarea{
+  width:100%; min-height:120px; font-size:12px; font-family:monospace;
+  border:1px solid var(--border); border-radius:8px; padding:8px;
+  background:var(--surface-2); color:var(--text); resize:vertical;
+}
+.modal-error{color:var(--dec-text); font-size:12.5px; margin-top:6px;}
+
+.photorow{display:flex; gap:10px; margin:10px 0;}
+.photocol{flex:1; display:flex; flex-direction:column; gap:6px; align-items:stretch;}
+.photolabel{font-size:11.5px; color:var(--text-2); font-weight:500;}
+.phototile{
+  width:100%; aspect-ratio:3/4; border-radius:8px; overflow:hidden;
+  background:var(--surface-2); border:1px dashed var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; color:var(--text-3);
+}
+.phototile img{width:100%; height:100%; object-fit:cover;}
+.phototile.empty{border-style:dashed;}
+
+button.ghost.wide{width:100%; padding:11px; text-align:center;}
+.receiptrow{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:10px 0; border-bottom:1px solid var(--border);
+}
+.receiptrow:last-child{border-bottom:none;}
+.receiptrow-people{font-size:13.5px; font-weight:500;}
+.receiptrow-meta{font-size:11.5px; color:var(--text-2); margin-top:2px;}
+.receiptrow-right{display:flex; align-items:center; gap:6px; flex-shrink:0;}
+.receiptrow-amount{font-size:13px; font-weight:600; margin-right:4px;}
+.receiptthumb{width:34px; height:34px; border-radius:6px; object-fit:cover; border:1px solid var(--border); cursor:pointer;}
+
+.imgviewer-overlay{background:rgba(0,0,0,0.85); padding:16px;}
+.imgviewer-full{max-width:100%; max-height:90vh; border-radius:8px; object-fit:contain;}
+
+.modal-card.wide{max-width:440px;}
+.tabsrow{display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:8px; border-bottom:1px solid var(--border);}
+.tabpill{
+  flex-shrink:0; font-size:12.5px; font-weight:500; padding:6px 12px; border-radius:20px;
+  border:1px solid var(--border); background:var(--surface-2); color:var(--text-2); cursor:pointer; white-space:nowrap;
+}
+.tabpill.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+.listcontent{max-height:340px; overflow-y:auto;}
+.listcontent-title{font-size:12px; font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.02em; margin-bottom:6px;}
+.listcontent-title-row{
+  display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  font-size:12px; font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.02em; margin-bottom:2px;
+}
+.attendance-counter{font-size:12.5px; font-weight:600; color:var(--accent); text-transform:none; letter-spacing:normal;}
+.resetattendance{
+  display:block; background:none; border:none; color:var(--text-3); font-size:11px;
+  text-decoration:underline; cursor:pointer; padding:0 0 8px; margin-bottom:4px;
+}
+
+.commrow{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:10px 0; border-bottom:1px solid var(--border);
+}
+.commrow:last-child{border-bottom:none;}
+.commrow-date{font-size:14px; font-weight:500; text-transform:capitalize;}
+.commrow-rate{font-size:11.5px; color:var(--text-2); margin-top:2px;}
+.commrow-right{text-align:right;}
+.commrow-total{font-size:13px; color:var(--text-2);}
+.commrow-commission{font-size:14px; font-weight:600; color:var(--pag-text);}
+.commfooter{
+  display:flex; justify-content:space-between; gap:10px; margin-top:12px; padding-top:12px;
+  border-top:2px solid var(--border);
+}
+.commfooter-label{font-size:11.5px; color:var(--text-2);}
+.commfooter-value{font-size:18px; font-weight:600;}
+.commfooter-value.accent{color:var(--accent);}
+.listrow{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:7px 0; border-bottom:1px solid var(--border); font-size:13.5px;
+}
+.listrow:last-child{border-bottom:none;}
+.listrow-status{font-size:11px; font-weight:500; padding:2px 8px; border-radius:12px;}
+
+.checkrow{
+  display:flex; align-items:center; gap:10px;
+  padding:9px 0; border-bottom:1px solid var(--border); cursor:pointer;
+}
+.checkrow:last-child{border-bottom:none;}
+.checkrow input[type=checkbox]{width:19px; height:19px; flex-shrink:0;}
+.checkrow-name{font-size:14px;}
+.checkrow.checked .checkrow-name{color:var(--text-3); text-decoration:line-through;}
+
+.fatalbox{
+  background:var(--surface); border:1px solid var(--dec-text); border-radius:12px;
+  padding:16px; margin-top:20px;
+}
+.fatalbox-title{font-size:15px; font-weight:600; color:var(--dec-text); margin-bottom:8px;}
+.fatalbox-msg{font-size:12px; font-family:monospace; color:var(--text-2); white-space:pre-wrap; word-break:break-word; max-height:160px; overflow-y:auto; background:var(--surface-2); padding:8px; border-radius:8px; margin-bottom:12px;}
+.fatalbox-actions{display:flex; flex-direction:column; gap:8px;}
+
+.actsummary{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  margin-bottom:4px; overflow:hidden;
+}
+.actsummary-row{
+  display:flex; justify-content:space-between; gap:8px;
+  padding:9px 12px; border-bottom:1px solid var(--border); font-size:13px;
+}
+.actsummary-row:last-child{border-bottom:none;}
+.actsummary-name{color:var(--text);}
+.actsummary-count{color:var(--text-2); font-weight:500; white-space:nowrap;}
+
+.chargehead{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+  margin-bottom:12px;
+}
+.chargehead-title{font-size:15px; font-weight:600;}
+.chargehead-sub{font-size:12.5px; color:var(--text-2); margin-top:2px;}
+
+.chargerow{
+  display:flex; align-items:center; gap:10px;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:11px 12px; margin-bottom:7px; cursor:pointer;
+}
+.chargerow.sel{border-color:var(--accent); background:var(--surface-2);}
+.chargerow input[type=checkbox]{width:18px; height:18px; flex-shrink:0;}
+.chargerow-info{flex:1; min-width:0;}
+.chargerow-name{font-size:14px; font-weight:500;}
+.chargerow-items{font-size:11.5px; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.chargerow-amount{font-size:13px; font-weight:600; color:var(--res-text); flex-shrink:0;}
+
+.chargebar{
+  position:sticky; bottom:10px; margin-top:14px;
+  background:var(--surface); color:var(--text); border:1px solid var(--border);
+  border-radius:12px; padding:16px;
+  box-shadow:0 4px 18px rgba(0,0,0,0.25);
+}
+.chargebar-top{display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.chargebar-count{font-size:12px; color:var(--text-2);}
+.chargebar-amount{font-size:22px; font-weight:600; margin-top:2px;}
+.chargebar-items{
+  margin-top:12px; padding-top:12px; border-top:1px solid var(--border);
+}
+.chargebar-item{font-size:14px; padding:2px 0;}
+.chargebar-actions{display:flex; gap:8px; margin-top:14px;}
+.chargebar-actions button{flex:1;}
+.chargebar button.primary.big{
+  background:var(--accent); color:#fff; padding:11px 16px; font-size:14px; white-space:nowrap;
+}
+.chargebar button[disabled]{opacity:0.4; cursor:not-allowed;}
+.chargebar button.declinebtn{
+  background:transparent; color:var(--dec-text); border:1px solid var(--dec-text);
+  padding:11px 14px; font-size:14px; border-radius:var(--radius); cursor:pointer; white-space:nowrap;
+}
+
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,0.5);
+  display:flex; align-items:center; justify-content:center; padding:20px; z-index:50;
+}
+.modal-card{
+  background:var(--surface); border-radius:12px; padding:18px;
+  max-width:360px; width:100%; max-height:80vh; overflow-y:auto;
+}
+.modal-title{font-size:15.5px; font-weight:600; margin-bottom:10px;}
+.modal-line{font-size:13px; color:var(--text-2); padding:4px 0; border-bottom:1px solid var(--border);}
+.modal-line:last-of-type{border-bottom:none;}
+.modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:14px;}
+
+.tourbar{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
+.tourbar-back{background:none; border:none; color:var(--accent); font-size:13px; cursor:pointer; padding:0;}
+.tourbar-name{font-size:12.5px; color:var(--text-2); font-weight:500;}
+
+.tourlist{margin-top:8px; margin-bottom:20px;}
+.tourcard{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:14px; margin-bottom:8px;
+}
+.tourcard-name{font-size:15px; font-weight:500; cursor:pointer; flex:1;}
+.importstatus{font-size:12.5px; color:var(--danger); margin-top:6px;}
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+
+const ACTIVITIES = [
+  {id:"london",    short:"London eye",  name:"London eye + barco",              price:70},
+  {id:"paris",     short:"París",       name:"Tour París iluminado",             price:55},
+  {id:"versalles", short:"Versalles",   name:"Tour Palacio de Versalles",        price:85},
+  {id:"nordkette", short:"Nordkette",   name:"Excursión Teleférico Nordkette",   price:70},
+  {id:"venecia",   short:"Venecia",     name:"Tour en góndola por Venecia",      price:40},
+  {id:"roma",      short:"Roma",        name:"Tour Roma Imperial",               price:75},
+  {id:"vaticano",  short:"Vaticano",    name:"Tour Museos Vaticanos y C. Sixtina",price:80},
+];
+const STATUS_ORDER = ["nada","reservado","pagado","declinado"];
+const STATUS_LABEL = {nada:"— nada —", reservado:"Reservado", pagado:"Pagado", declinado:"Declinado"};
+
+let TOUR_ID = new URLSearchParams(location.search).get("tour");
+let TOUR_NAME = "";
+let state = null;
+let openPeople = {};
+let mode = "browse"; // "picker" | "browse" | "charge"
+let selected = new Set();
+
+async function apiGetTours(){
+  const res = await fetch("/.netlify/functions/tours");
+  if(!res.ok) throw new Error("No se pudo cargar la lista de tours");
+  return res.json();
+}
+async function apiCreateTour(name){
+  const res = await fetch("/.netlify/functions/tours", {
+    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({name})
+  });
+  if(!res.ok) throw new Error("No se pudo crear el tour");
+  return res.json();
+}
+async function apiDeleteTour(id){
+  const res = await fetch("/.netlify/functions/tours", {
+    method: "DELETE", headers: {"Content-Type":"application/json"}, body: JSON.stringify({id})
+  });
+  if(!res.ok) throw new Error("No se pudo eliminar el tour");
+  return res.json();
+}
+async function loadState(){
+  const res = await fetch("/.netlify/functions/tour-data?id=" + encodeURIComponent(TOUR_ID));
+  if(!res.ok) throw new Error("No se pudo cargar el tour");
+  const s = await res.json();
+  if(!Array.isArray(s.receipts)) s.receipts = [];
+  if(!s.checkins) s.checkins = {};
+  return s;
+}
+let storageBroken = false;
+let saveTimer = null;
+async function trySave(attempt){
+  try{
+    const res = await fetch("/.netlify/functions/tour-data?id=" + encodeURIComponent(TOUR_ID), {
+      method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(state)
+    });
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    if(storageBroken){ storageBroken = false; safeRender(); }
+  }catch(e){
+    if(attempt < 2){
+      setTimeout(() => trySave(attempt+1), 500 * (attempt+1));
+    } else {
+      if(!storageBroken){ storageBroken = true; safeRender(); }
+      console.warn("No se pudo guardar en el servidor:", e);
+    }
+  }
+}
+function saveState(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => trySave(0), 400);
+}
+
+
+function fmt(n){ return n.toLocaleString('es-MX', {minimumFractionDigits:0, maximumFractionDigits:2}); }
+
+function computeTotals(){
+  let pagado = 0, reservado = 0, personasConAlgo = 0;
+  let countPagado = 0, countReservado = 0;
+  const perActivity = {};
+  for(const a of ACTIVITIES) perActivity[a.id] = 0;
+  for(const p of state.people){
+    let has = false;
+    for(const a of ACTIVITIES){
+      const st = p.cart[a.id];
+      if(st === "pagado"){ pagado += a.price; has = true; countPagado++; perActivity[a.id]++; }
+      else if(st === "reservado"){ reservado += a.price; has = true; countReservado++; perActivity[a.id]++; }
+    }
+    if(has) personasConAlgo++;
+  }
+  return {pagado, reservado, personasConAlgo, countPagado, countReservado, perActivity};
+}
+
+function nextStatus(cur){
+  const idx = STATUS_ORDER.indexOf(cur || "nada");
+  return STATUS_ORDER[(idx+1) % STATUS_ORDER.length];
+}
+
+function uid(prefix){ return prefix + Math.random().toString(36).slice(2,9); }
+
+function showConfirm(title, lines, confirmLabel, onYes){
+  const overlay = el("div", {class:"modal-overlay"});
+  const card = el("div", {class:"modal-card"},
+    el("div", {class:"modal-title"}, title),
+    ...lines.map(l => el("div", {class:"modal-line"}, l)),
+    el("div", {class:"modal-actions"},
+      el("button", {class:"ghost", onclick: () => overlay.remove()}, "Cancelar"),
+      el("button", {class:"primary", onclick: () => { overlay.remove(); onYes(); }}, confirmLabel)
+    )
+  );
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => { if(e.target === overlay) overlay.remove(); });
+  document.getElementById("app").appendChild(overlay);
+}
+
+function el(tag, attrs, ...children){
+  const e = document.createElement(tag);
+  for(const k in (attrs||{})){
+    if(attrs[k] == null) continue;
+    if(k === "class") e.className = attrs[k];
+    else if(k.startsWith("on")) e.addEventListener(k.slice(2), attrs[k]);
+    else e.setAttribute(k, attrs[k]);
+  }
+  for(const c of children){
+    if(c == null) continue;
+    e.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  }
+  return e;
+}
+
+function personTotal(p){
+  let pagado=0, reservado=0;
+  for(const a of ACTIVITIES){
+    const st = p.cart[a.id];
+    if(st === "pagado") pagado += a.price;
+    else if(st === "reservado") reservado += a.price;
+  }
+  return {pagado, reservado};
+}
+
+function personPendingItems(p){
+  return ACTIVITIES.filter(a => p.cart[a.id] === "reservado");
+}
+
+function selectedChargeSummary(){
+  let total = 0, itemCount = 0, peopleWithPending = 0;
+  const lines = [];
+  for(const p of state.people){
+    if(!selected.has(p.id)) continue;
+    const items = personPendingItems(p);
+    if(items.length === 0) continue;
+    peopleWithPending++;
+    const subtotal = items.reduce((s,a) => s + a.price, 0);
+    total += subtotal;
+    itemCount += items.length;
+    lines.push({name: p.name, items, subtotal});
+  }
+  return {total, itemCount, peopleWithPending, lines};
+}
+
+async function setSelectedStatus(newStatus, receipt){
+  const peopleNames = state.people.filter(p => selected.has(p.id)).map(p => p.name);
+  for(const p of state.people){
+    if(!selected.has(p.id)) continue;
+    for(const a of ACTIVITIES){
+      if(p.cart[a.id] === "reservado") p.cart[a.id] = newStatus;
+    }
+  }
+  if(receipt){
+    state.receipts.push({
+      id: uid("r"),
+      ts: Date.now(),
+      people: peopleNames,
+      total: receipt.total,
+      items: receipt.items,
+      front: receipt.front || null,
+      back: receipt.back || null
+    });
+  }
+  selected.clear();
+  mode = "browse";
+  safeRender();
+  saveState();
+}
+
+function compressImage(file, maxDim, quality){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if(w > h && w > maxDim){ h = Math.round(h * maxDim / w); w = maxDim; }
+        else if(h >= w && h > maxDim){ w = Math.round(w * maxDim / h); h = maxDim; }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function openListsModal(){
+  const overlay = el("div", {class:"modal-overlay"});
+  let activeTab = "todos";
+
+  const tabsRow = el("div", {class:"tabsrow"});
+  const contentBox = el("div", {class:"listcontent"});
+  const copyBtn = el("button", {class:"ghost", onclick: async () => {
+    const text = buildListText(activeTab);
+    try{
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = "¡Copiado!";
+      setTimeout(() => copyBtn.textContent = "Copiar lista", 1500);
+    }catch(e){}
+  }}, "Copiar lista");
+
+  function checkinKey(personId){ return personId + ":" + activeTab; }
+
+  function buildListText(tabId){
+    if(tabId === "todos"){
+      const lines = state.people.slice().sort((a,b) => a.name.localeCompare(b.name))
+        .map(p => (state.checkins[p.id+":todos"] ? "☑ " : "☐ ") + p.name);
+      return "TODOS (" + state.people.length + ")\n" + lines.join("\n");
+    }
+    const a = ACTIVITIES.find(x => x.id === tabId);
+    const going = state.people.filter(p => p.cart[tabId] === "reservado" || p.cart[tabId] === "pagado");
+    going.sort((x,y) => x.name.localeCompare(y.name));
+    const lines = going.map(p => (state.checkins[p.id+":"+tabId] ? "☑ " : "☐ ") + p.name);
+    return a.name.toUpperCase() + " (" + going.length + ")\n" + lines.join("\n");
+  }
+
+  function renderTab(){
+    contentBox.innerHTML = "";
+    const list = activeTab === "todos"
+      ? state.people.slice().sort((a,b) => a.name.localeCompare(b.name))
+      : state.people.filter(p => p.cart[activeTab] === "reservado" || p.cart[activeTab] === "pagado")
+          .sort((a,b) => a.name.localeCompare(b.name));
+
+    const title = activeTab === "todos" ? "Todos" : ACTIVITIES.find(x => x.id === activeTab).name;
+    const countPresent = list.filter(p => state.checkins[checkinKey(p.id)]).length;
+    const counterEl = el("span", {class:"attendance-counter"}, countPresent + " / " + list.length + " presentes");
+    contentBox.appendChild(el("div", {class:"listcontent-title-row"},
+      el("span", {}, title + " (" + list.length + ")"),
+      counterEl
+    ));
+    contentBox.appendChild(el("button", {class:"resetattendance", onclick: () => {
+      for(const p of list) delete state.checkins[checkinKey(p.id)];
+      saveState();
+      renderTab();
+    }}, "Reiniciar asistencia de esta lista"));
+
+    if(list.length === 0){
+      contentBox.appendChild(el("div", {class:"empty"}, "Nadie ha reservado esta actividad todavía."));
+      return;
+    }
+    for(const p of list){
+      const key = checkinKey(p.id);
+      const checked = !!state.checkins[key];
+
+      let dot = null;
+      if(activeTab === "todos"){
+        const hasDeclinado = ACTIVITIES.some(a => p.cart[a.id] === "declinado");
+        const hasReservado = ACTIVITIES.some(a => p.cart[a.id] === "reservado");
+        if(hasDeclinado) dot = el("span", {class:"dot dot-red"});
+        else if(hasReservado) dot = el("span", {class:"dot dot-yellow"});
+      } else {
+        const st = p.cart[activeTab];
+        if(st === "pagado") dot = el("span", {class:"dot dot-green"});
+        else if(st === "reservado") dot = el("span", {class:"dot dot-yellow"});
+      }
+
+      const labelEl = el("label", {class:"checkrow" + (checked ? " checked" : "")},
+        el("input", {type:"checkbox", checked: checked ? "checked" : null, onchange: (e) => {
+          state.checkins[key] = e.target.checked;
+          labelEl.classList.toggle("checked", e.target.checked);
+          const present = list.filter(pp => state.checkins[checkinKey(pp.id)]).length;
+          counterEl.textContent = present + " / " + list.length + " presentes";
+          saveState();
+        }}),
+        dot,
+        el("span", {class:"checkrow-name"}, p.name)
+      );
+      contentBox.appendChild(labelEl);
+    }
+  }
+
+  function buildTabs(){
+    tabsRow.innerHTML = "";
+    const allTabs = [{id:"todos", label:"Todos"}, ...ACTIVITIES.map(a => ({id:a.id, label:a.short || a.name}))];
+    for(const t of allTabs){
+      tabsRow.appendChild(el("button", {
+        class:"tabpill" + (activeTab===t.id ? " active" : ""),
+        onclick: () => { activeTab = t.id; buildTabs(); renderTab(); }
+      }, t.label));
+    }
+  }
+
+  buildTabs();
+  renderTab();
+
+  const card = el("div", {class:"modal-card wide"},
+    el("div", {class:"modal-title"}, "Listas por actividad"),
+    tabsRow,
+    contentBox,
+    el("div", {class:"modal-actions"},
+      el("button", {class:"ghost", onclick: () => overlay.remove()}, "Cerrar"),
+      copyBtn
+    )
+  );
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => { if(e.target === overlay) overlay.remove(); });
+  document.getElementById("app").appendChild(overlay);
+}
+
+function openCommissionModal(){
+  const overlay = el("div", {class:"modal-overlay"});
+
+  // Group receipts by calendar day (local date)
+  const byDay = {};
+  for(const r of state.receipts){
+    const d = new Date(r.ts);
+    const dayKey = d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate();
+    if(!byDay[dayKey]) byDay[dayKey] = {date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), total: 0};
+    byDay[dayKey].total += r.total;
+  }
+  const days = Object.values(byDay).sort((a,b) => a.date - b.date);
+
+  const card = el("div", {class:"modal-card"},
+    el("div", {class:"modal-title"}, "Reporte de comisión")
+  );
+
+  if(days.length === 0){
+    card.appendChild(el("div", {class:"empty"}, "Aún no hay cobros registrados."));
+  } else {
+    const firstDay = days[0].date;
+    let totalCobrado = 0, totalComision = 0;
+    const list = el("div", {});
+    for(const day of days){
+      const daysSinceFirst = Math.round((day.date - firstDay) / 86400000);
+      const rate = daysSinceFirst <= 1 ? 0.10 : 0.05;
+      const commission = day.total * rate;
+      totalCobrado += day.total;
+      totalComision += commission;
+      list.appendChild(el("div", {class:"commrow"},
+        el("div", {},
+          el("div", {class:"commrow-date"}, day.date.toLocaleDateString('es-MX', {weekday:'short', day:'numeric', month:'short'})),
+          el("div", {class:"commrow-rate"}, (rate*100) + "% de comisión" + (daysSinceFirst<=1 ? " (primeros 2 días)" : ""))
+        ),
+        el("div", {class:"commrow-right"},
+          el("div", {class:"commrow-total"}, "CHF " + fmt(day.total)),
+          el("div", {class:"commrow-commission"}, "+CHF " + fmt(commission))
+        )
+      ));
+    }
+    card.appendChild(list);
+    card.appendChild(el("div", {class:"commfooter"},
+      el("div", {},
+        el("div", {class:"commfooter-label"}, "Total cobrado"),
+        el("div", {class:"commfooter-value"}, "CHF " + fmt(totalCobrado))
+      ),
+      el("div", {},
+        el("div", {class:"commfooter-label"}, "Tu comisión total"),
+        el("div", {class:"commfooter-value accent"}, "CHF " + fmt(totalComision))
+      )
+    ));
+  }
+
+  card.appendChild(el("div", {class:"modal-actions"},
+    el("button", {class:"ghost", onclick: () => overlay.remove()}, "Cerrar")
+  ));
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => { if(e.target === overlay) overlay.remove(); });
+  document.getElementById("app").appendChild(overlay);
+}
+
+function openImageViewer(src){
+  const overlay = el("div", {class:"modal-overlay imgviewer-overlay"});
+  overlay.appendChild(el("img", {src, class:"imgviewer-full"}));
+  overlay.addEventListener("click", () => overlay.remove());
+  document.getElementById("app").appendChild(overlay);
+}
+
+function openReceiptsModal(personName){
+  const overlay = el("div", {class:"modal-overlay"});
+  const list = el("div", {});
+  const filtered = personName ? state.receipts.filter(r => r.people.includes(personName)) : state.receipts;
+  const sorted = filtered.slice().sort((a,b) => b.ts - a.ts);
+  if(sorted.length === 0){
+    list.appendChild(el("div", {class:"empty"}, "No hay recibos todavía."));
+  }
+  for(const r of sorted){
+    const date = new Date(r.ts);
+    const dateTxt = date.toLocaleDateString('es-MX') + " " + date.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
+    const row = el("div", {class:"receiptrow"},
+      el("div", {},
+        el("div", {class:"receiptrow-people"}, r.people.join(", ")),
+        el("div", {class:"receiptrow-meta"}, dateTxt + " · " + (r.items||[]).join(", ")),
+      ),
+      el("div", {class:"receiptrow-right"},
+        el("div", {class:"receiptrow-amount"}, "CHF " + fmt(r.total)),
+        r.front ? el("img", {src:r.front, class:"receiptthumb", onclick: () => openImageViewer(r.front)}) : null,
+        r.back ? el("img", {src:r.back, class:"receiptthumb", onclick: () => openImageViewer(r.back)}) : null,
+      )
+    );
+    list.appendChild(row);
+  }
+  const card = el("div", {class:"modal-card"},
+    el("div", {class:"modal-title"}, personName ? ("Recibos de " + personName) : "Recibos"),
+    list,
+    el("div", {class:"modal-actions"},
+      el("button", {class:"ghost", onclick: () => overlay.remove()}, "Cerrar")
+    )
+  );
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => { if(e.target === overlay) overlay.remove(); });
+  document.getElementById("app").appendChild(overlay);
+}
+
+function openPhotoCapture(summary, onDone){
+  const overlay = el("div", {class:"modal-overlay"});
+  let frontData = null, backData = null;
+
+  const frontThumb = el("div", {class:"phototile empty"}, "Sin foto");
+  const backThumb = el("div", {class:"phototile empty"}, "Sin foto");
+
+  const frontInput = el("input", {type:"file", accept:"image/*", capture:"environment", style:"display:none;", onchange: async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    frontThumb.textContent = "Procesando...";
+    frontData = await compressImage(file, 900, 0.6);
+    frontThumb.innerHTML = "";
+    frontThumb.className = "phototile";
+    frontThumb.appendChild(el("img", {src: frontData}));
+    checkReady();
+  }});
+  const backInput = el("input", {type:"file", accept:"image/*", capture:"environment", style:"display:none;", onchange: async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    backThumb.textContent = "Procesando...";
+    backData = await compressImage(file, 900, 0.6);
+    backThumb.innerHTML = "";
+    backThumb.className = "phototile";
+    backThumb.appendChild(el("img", {src: backData}));
+    checkReady();
+  }});
+
+  const finishBtn = el("button", {class:"primary", disabled:"disabled", onclick: () => {
+    overlay.remove();
+    onDone(frontData, backData);
+  }}, "Guardar y marcar pagado");
+
+  function checkReady(){
+    if(frontData && backData) finishBtn.removeAttribute("disabled");
+    else finishBtn.setAttribute("disabled","disabled");
+  }
+
+  const card = el("div", {class:"modal-card"},
+    el("div", {class:"modal-title"}, "Foto del ticket — CHF " + fmt(summary.total)),
+    el("div", {class:"modal-line", style:"border:none; padding-bottom:8px;"}, "Toma una foto de frente (con la descripción) y otra de atrás (con la firma)."),
+    el("div", {class:"photorow"},
+      el("div", {class:"photocol"},
+        el("div", {class:"photolabel"}, "Frente (descripción)"),
+        frontThumb,
+        el("button", {class:"ghost", onclick: () => frontInput.click()}, "📷 Tomar foto"),
+        frontInput
+      ),
+      el("div", {class:"photocol"},
+        el("div", {class:"photolabel"}, "Atrás (firma)"),
+        backThumb,
+        el("button", {class:"ghost", onclick: () => backInput.click()}, "📷 Tomar foto"),
+        backInput
+      )
+    ),
+    el("div", {class:"modal-actions"},
+      el("button", {class:"ghost", onclick: () => { overlay.remove(); onDone(null, null); }}, "Omitir fotos"),
+      finishBtn
+    )
+  );
+  overlay.appendChild(card);
+  document.getElementById("app").appendChild(overlay);
+}
+
+function openExportModal(){
+  const overlay = el("div", {class:"modal-overlay"});
+  const textarea = el("textarea", {class:"exportarea", readonly:"readonly"});
+  textarea.value = JSON.stringify(state);
+
+  const copyBtn = el("button", {class:"primary", onclick: async () => {
+    try{
+      await navigator.clipboard.writeText(textarea.value);
+      copyBtn.textContent = "¡Copiado!";
+      setTimeout(() => copyBtn.textContent = "Copiar", 1500);
+    }catch(e){
+      textarea.focus();
+      textarea.select();
+    }
+  }}, "Copiar");
+
+  const card = el("div", {class:"modal-card"},
+    el("div", {class:"modal-title"}, "Exportar datos"),
+    el("div", {class:"modal-line", style:"border:none; padding-bottom:8px;"},
+      "Copia este texto y guárdalo (nota, WhatsApp a ti mismo, etc). Luego lo puedes pegar en \"Importar datos\" para recuperar todo."),
+    textarea,
+    el("div", {class:"modal-actions"},
+      el("button", {class:"ghost", onclick: () => overlay.remove()}, "Cerrar"),
+      copyBtn
+    )
+  );
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => { if(e.target === overlay) overlay.remove(); });
+  document.getElementById("app").appendChild(overlay);
+  textarea.focus();
+  textarea.select();
+}
+
+function openImportModal(){
+  const overlay = el("div", {class:"modal-overlay"});
+  const textarea = el("textarea", {class:"exportarea", placeholder:"Pega aquí el texto que exportaste antes..."});
+  const errorMsg = el("div", {class:"modal-error", style:"display:none;"});
+
+  const card = el("div", {class:"modal-card"},
+    el("div", {class:"modal-title"}, "Importar datos"),
+    el("div", {class:"modal-line", style:"border:none; padding-bottom:8px;"},
+      "Esto reemplaza todo lo que ves ahora por lo que pegues aquí."),
+    textarea,
+    errorMsg,
+    el("div", {class:"modal-actions"},
+      el("button", {class:"ghost", onclick: () => overlay.remove()}, "Cancelar"),
+      el("button", {class:"primary", onclick: () => {
+        try{
+          const parsed = JSON.parse(textarea.value);
+          if(!parsed || !Array.isArray(parsed.people)) throw new Error("formato inválido");
+          state = parsed;
+          overlay.remove();
+          safeRender();
+          saveState();
+        }catch(e){
+          errorMsg.textContent = "Ese texto no se pudo leer. Revisa que lo hayas copiado completo.";
+          errorMsg.style.display = "block";
+        }
+      }}, "Cargar")
+    )
+  );
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => { if(e.target === overlay) overlay.remove(); });
+  document.getElementById("app").appendChild(overlay);
+}
+
+function render(){
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+
+  app.appendChild(el("div", {class:"tourbar"},
+    el("button", {class:"tourbar-back", onclick: () => { location.href = location.pathname; }}, "← Tours"),
+    el("div", {class:"tourbar-name"}, TOUR_NAME || "")
+  ));
+  app.appendChild(el("h1", {}, "Panel de reservas"));
+  app.appendChild(el("p", {class:"sub"}, state.people.length + " personas"));
+
+  if(storageBroken){
+    app.appendChild(el("div", {class:"savewarning"},
+      el("div", {},
+        el("div", {class:"savewarning-title"}, "El guardado automático no está funcionando"),
+        el("div", {class:"savewarning-sub"}, "Tus cambios se ven en pantalla pero podrían no quedar guardados si cierras esto. Exporta tus datos como respaldo.")
+      ),
+      el("button", {class:"ghost light", onclick: () => openExportModal()}, "Exportar")
+    ));
+  }
+
+  const totals = computeTotals();
+  const committed = totals.pagado + totals.reservado;
+  const totalPossible = state.people.length * ACTIVITIES.length;
+  const pctPagado = totalPossible > 0 ? Math.round((totals.countPagado / totalPossible) * 100) : 0;
+  const pctReservado = totalPossible > 0 ? Math.round((totals.countReservado / totalPossible) * 100) : 0;
+
+  app.appendChild(el("div", {class:"metrics"},
+    el("div", {class:"metric"},
+      el("div", {class:"label"}, "Pagado"),
+      el("div", {class:"value"}, "CHF " + fmt(totals.pagado))
+    ),
+    el("div", {class:"metric"},
+      el("div", {class:"label"}, "Reservado (por cobrar)"),
+      el("div", {class:"value"}, "CHF " + fmt(totals.reservado))
+    ),
+    el("div", {class:"metric"},
+      el("div", {class:"label"}, "% vendido"),
+      el("div", {class:"value"}, pctPagado + "%")
+    ),
+    el("div", {class:"metric"},
+      el("div", {class:"label"}, "% reservado"),
+      el("div", {class:"value"}, pctReservado + "%")
+    ),
+    el("div", {class:"metric"},
+      el("div", {class:"label"}, "Total comprometido"),
+      el("div", {class:"value small"}, "CHF " + fmt(committed))
+    ),
+    el("div", {class:"metric"},
+      el("div", {class:"label"}, "Personas con algo"),
+      el("div", {class:"value small"}, totals.personasConAlgo + " / " + state.people.length)
+    ),
+  ));
+  app.appendChild(el("p", {class:"pctnote"}, "% sobre el total posible: " + state.people.length + " personas × " + ACTIVITIES.length + " actividades = " + (state.people.length*ACTIVITIES.length)));
+
+  if(mode === "browse"){
+    renderBrowseMode(app);
+  } else {
+    renderChargeMode(app);
+  }
+}
+
+function renderBrowseMode(app){
+  app.appendChild(el("div", {class:"actionrow"},
+    el("button", {class:"primary", onclick: () => { mode = "charge"; selected.clear(); safeRender(); }}, "💳 Cobrar"),
+  ));
+  app.appendChild(el("div", {class:"actionrow"},
+    el("button", {class:"ghost wide", onclick: () => openListsModal()}, "📋 Listas por actividad")
+  ));
+  app.appendChild(el("div", {class:"actionrow-split"},
+    el("button", {class:"ghost", onclick: () => openExportModal()}, "⬇ Exportar datos"),
+    el("button", {class:"ghost", onclick: () => openImportModal()}, "⬆ Importar datos"),
+  ));
+
+  if(state.receipts.length > 0){
+    app.appendChild(el("div", {class:"actionrow"},
+      el("button", {class:"ghost wide", onclick: () => openReceiptsModal()}, "🧾 Ver recibos (" + state.receipts.length + ")")
+    ));
+    app.appendChild(el("div", {class:"actionrow"},
+      el("button", {class:"ghost wide", onclick: () => openCommissionModal()}, "💰 Reporte de comisión")
+    ));
+  }
+
+  app.appendChild(el("div", {class:"section-title"}, "Agregar persona"));
+  app.appendChild(buildAddForm());
+
+  app.appendChild(el("div", {class:"section-title"}, "Personas"));
+
+  if(state.people.length === 0){
+    app.appendChild(el("div", {class:"empty"}, "Aún no hay personas. Agrega la primera arriba."));
+  }
+  for(const p of state.people){
+    app.appendChild(buildPersonCard(p));
+  }
+}
+
+function renderChargeMode(app){
+  app.appendChild(el("div", {class:"chargehead"},
+    el("div", {},
+      el("div", {class:"chargehead-title"}, "¿A quién le vas a cobrar?"),
+      el("div", {class:"chargehead-sub"}, "Marca a una o varias personas (familia), y marca pagado o declinado")
+    ),
+    el("button", {class:"ghost", onclick: () => { mode = "browse"; selected.clear(); safeRender(); }}, "Cancelar")
+  ));
+
+  if(state.people.length === 0){
+    app.appendChild(el("div", {class:"empty"}, "No hay personas todavía."));
+    return;
+  }
+
+  for(const p of state.people){
+    const items = personPendingItems(p);
+    const t = personTotal(p);
+    const isSel = selected.has(p.id);
+    const line = el("label", {class:"chargerow" + (isSel ? " sel" : "")},
+      el("input", {type:"checkbox", checked: isSel ? "checked" : null, onchange: (e) => {
+        if(e.target.checked) selected.add(p.id); else selected.delete(p.id);
+        safeRender();
+      }}),
+      el("div", {class:"chargerow-info"},
+        el("div", {class:"chargerow-name"}, p.name),
+        el("div", {class:"chargerow-items"},
+          items.length ? items.map(a => a.name).join(", ") : (t.pagado>0 ? "Ya todo pagado" : "Nada reservado")
+        )
+      ),
+      el("div", {class:"chargerow-amount"}, t.reservado>0 ? "CHF " + fmt(t.reservado) : "—")
+    );
+    app.appendChild(line);
+  }
+
+  const summary = selectedChargeSummary();
+  if(selected.size > 0){
+    app.appendChild(buildChargeBar(summary));
+  }
+}
+
+function aggregateByActivity(summary){
+  const counts = {};
+  for(const line of summary.lines){
+    for(const item of line.items){
+      counts[item.id] = (counts[item.id] || 0) + 1;
+    }
+  }
+  return ACTIVITIES.filter(a => counts[a.id]).map(a => (counts[a.id] + "× " + a.name));
+}
+
+function buildChargeBar(summary){
+  const disabled = summary.total === 0;
+  const activityLines = aggregateByActivity(summary);
+
+  const bar = el("div", {class:"chargebar"},
+    el("div", {class:"chargebar-top"},
+      el("div", {},
+        el("div", {class:"chargebar-count"},
+          summary.peopleWithPending + " de " + selected.size + " seleccionada(s) tienen algo pendiente"
+        ),
+        el("div", {class:"chargebar-amount"}, "CHF " + fmt(summary.total))
+      )
+    )
+  );
+
+  if(activityLines.length){
+    const list = el("div", {class:"chargebar-items"});
+    for(const line of activityLines){
+      list.appendChild(el("div", {class:"chargebar-item"}, line));
+    }
+    bar.appendChild(list);
+  }
+
+  bar.appendChild(el("div", {class:"chargebar-actions"},
+    el("button", {class:"declinebtn", disabled: disabled ? "disabled" : null, onclick: () => {
+      if(disabled) return;
+      showConfirm("Declinar CHF " + fmt(summary.total), activityLines, "Confirmar declinado", () => setSelectedStatus("declinado"));
+    }}, "Declinado"),
+    el("button", {class:"primary big", disabled: disabled ? "disabled" : null, onclick: () => {
+      if(disabled) return;
+      showConfirm("Cobrar CHF " + fmt(summary.total), activityLines, "Confirmar pago", () => {
+        openPhotoCapture(summary, (front, back) => {
+          setSelectedStatus("pagado", {total: summary.total, items: activityLines, front, back});
+        });
+      });
+    }}, "Pagado")
+  ));
+
+  return bar;
+}
+
+function buildAddForm(){
+  const wrap = el("div", {});
+  const nameInput = el("input", {placeholder:"Nombre de la persona", type:"text"});
+
+  const form = el("div", {class:"form-card"},
+    nameInput,
+    el("div", {class:"form-actions"},
+      el("button", {class:"ghost", onclick: () => form.classList.remove("open")}, "Cancelar"),
+      el("button", {class:"primary", onclick: () => {
+        const name = nameInput.value.trim();
+        if(!name){ nameInput.style.borderColor = "var(--danger)"; return; }
+        const id = uid("p");
+        state.people.push({id, name, cart:{}});
+        openPeople[id] = true;
+        nameInput.value = "";
+        safeRender();
+        saveState();
+      }}, "Agregar")
+    )
+  );
+
+  const toggleBtn = el("button", {class:"primary", onclick: () => {
+    form.classList.toggle("open");
+    if(form.classList.contains("open")) nameInput.focus();
+  }}, "+ Agregar persona");
+
+  wrap.appendChild(toggleBtn);
+  wrap.appendChild(form);
+  return wrap;
+}
+
+function buildPersonCard(p){
+  const isOpen = !!openPeople[p.id];
+  const t = personTotal(p);
+  const totalTxt = (t.pagado + t.reservado) > 0 ? "CHF " + fmt(t.pagado + t.reservado) : "";
+  const hasDeclinado = ACTIVITIES.some(a => p.cart[a.id] === "declinado");
+  const hasReservado = ACTIVITIES.some(a => p.cart[a.id] === "reservado");
+  const receipts = state.receipts.filter(r => r.people.includes(p.name));
+
+  const row = el("div", {class:"person-row", onclick: () => {
+    openPeople[p.id] = !isOpen;
+    safeRender();
+  }},
+    el("div", {class:"pname-wrap"},
+      hasDeclinado ? el("span", {class:"dot dot-red", title:"Tiene algo declinado"}) : null,
+      hasReservado ? el("span", {class:"dot dot-yellow", title:"Tiene algo reservado"}) : null,
+      el("span", {class:"pname"}, p.name)
+    ),
+    el("div", {class:"person-right"},
+      el("div", {class:"person-total"}, totalTxt),
+      receipts.length ? el("button", {class:"icon", title:"Ver foto del recibo", onclick: (e) => {
+        e.stopPropagation();
+        openReceiptsModal(p.name);
+      }}, "📷") : null,
+      el("span", {class:"chevron" + (isOpen?" open":"")}, "▸"),
+      el("button", {class:"icon", title:"Eliminar persona", onclick: (e) => {
+        e.stopPropagation();
+        showConfirm("Eliminar persona", ["¿Eliminar a " + p.name + "?"], "Eliminar", () => {
+          state.people = state.people.filter(x => x.id !== p.id);
+          safeRender();
+          saveState();
+        });
+      }}, "✕")
+    )
+  );
+
+  const cart = el("div", {class:"cart" + (isOpen?" open":"")});
+  for(const a of ACTIVITIES){
+    const st = p.cart[a.id] || "nada";
+    const select = el("select", {
+      class:"status-select status-" + st,
+      onclick: (e) => e.stopPropagation(),
+      onchange: (e) => {
+        const ns = e.target.value;
+        if(ns === "nada") delete p.cart[a.id];
+        else p.cart[a.id] = ns;
+        safeRender();
+        saveState();
+      }
+    });
+    for(const opt of STATUS_ORDER){
+      select.appendChild(el("option", {value: opt, selected: opt===st ? "selected" : null}, STATUS_LABEL[opt]));
+    }
+    select.value = st;
+
+    cart.appendChild(el("div", {class:"cart-item"},
+      el("div", {},
+        el("div", {class:"aname"}, a.name),
+        el("div", {class:"aprice"}, "CHF " + a.price)
+      ),
+      select
+    ));
+  }
+
+  return el("div", {class:"person-card"}, row, cart);
+}
+
+function sanitizeState(s){
+  if(!s || typeof s !== "object") s = {};
+  if(!Array.isArray(s.people)) s.people = [];
+  s.people = s.people.map(p => ({
+    id: (p && p.id) || uid("p"),
+    name: (p && typeof p.name === "string") ? p.name : "Sin nombre",
+    cart: (p && p.cart && typeof p.cart === "object") ? p.cart : {}
+  }));
+  if(!Array.isArray(s.receipts)) s.receipts = [];
+  if(!s.checkins || typeof s.checkins !== "object") s.checkins = {};
+  return s;
+}
+
+function showFatalError(err){
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+  app.appendChild(el("div", {class:"fatalbox"},
+    el("div", {class:"fatalbox-title"}, "Algo se rompió en el panel"),
+    el("div", {class:"fatalbox-msg"}, String(err && (err.stack || err.message) || err)),
+    el("div", {class:"fatalbox-actions"},
+      el("button", {class:"primary", onclick: () => {
+        state = sanitizeState(state);
+        safeRender();
+      }}, "Intentar recuperar datos"),
+      el("button", {class:"ghost", onclick: () => { location.reload(); }}, "Recargar desde el servidor"),
+      el("button", {class:"ghost", onclick: () => { location.href = location.pathname; }}, "← Volver a Tours")
+    )
+  ));
+}
+
+function safeRender(){
+  try{
+    render();
+  }catch(err){
+    console.error("Render error:", err);
+    showFatalError(err);
+  }
+}
+
+window.addEventListener("error", (e) => {
+  console.error("Uncaught error:", e.error || e.message);
+  if(state) showFatalError(e.error || e.message);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  console.error("Unhandled rejection:", e.reason);
+});
+
+function renderPickerError(app, err){
+  app.innerHTML = "";
+  app.appendChild(el("h1", {}, "Panel de reservas"));
+  app.appendChild(el("div", {class:"fatalbox"},
+    el("div", {class:"fatalbox-title"}, "No se pudo conectar con el servidor"),
+    el("div", {class:"fatalbox-msg"}, String(err && err.message || err)),
+    el("div", {class:"fatalbox-actions"},
+      el("button", {class:"primary", onclick: () => location.reload()}, "Reintentar")
+    )
+  ));
+}
+
+function detectActivityColumn(headerText){
+  const h = (headerText || "").toString().toLowerCase();
+  if(h.includes("lndvli") || h.includes("london")) return "london";
+  if(h.includes("parlvi02") || h.includes("versalles")) return "versalles";
+  if(h.includes("parlvi01") || (h.includes("par") && h.includes("ilumin"))) return "paris";
+  if(h.includes("insvli") || h.includes("nordkette") || h.includes("teleferico") || h.includes("teleférico")) return "nordkette";
+  if(h.includes("vcevli") || h.includes("góndola") || h.includes("gondola") || h.includes("venecia")) return "venecia";
+  if(h.includes("vaticano") || h.includes("sixtina") || h.includes("romvli01")) return "vaticano";
+  if(h.includes("romvli02") || (h.includes("roma") && h.includes("imperial"))) return "roma";
+  return null;
+}
+
+const IMPORT_SKIP_LABELS = ["reservado","pagado","tickets free","total a comprar","total vendido","sumup","tl"];
+
+function parseSpreadsheetFile(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("no se pudo leer el archivo"));
+    reader.onload = () => {
+      try{
+        const wb = XLSX.read(reader.result, {type: "array"});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, {header: 1, defval: ""});
+
+        // find header row: the one containing "TITULAR"
+        let headerRowIdx = -1, titularCol = -1;
+        for(let r = 0; r < Math.min(rows.length, 15); r++){
+          const idx = rows[r].findIndex(c => (c||"").toString().trim().toUpperCase() === "TITULAR");
+          if(idx >= 0){ headerRowIdx = r; titularCol = idx; break; }
+        }
+        if(headerRowIdx === -1) return resolve([]);
+
+        const header = rows[headerRowIdx];
+        const colMap = {}; // activityId -> column index
+        for(let c = titularCol + 1; c < header.length; c++){
+          const aid = detectActivityColumn(header[c]);
+          if(aid && !(aid in colMap)) colMap[aid] = c;
+        }
+
+        const people = [];
+        for(let r = headerRowIdx + 1; r < rows.length; r++){
+          const row = rows[r];
+          const name = (row[titularCol] || "").toString().trim();
+          if(!name) continue;
+          const rowLower = row.map(c => (c||"").toString().trim().toLowerCase());
+          if(IMPORT_SKIP_LABELS.includes(name.toLowerCase())) continue;
+          if(rowLower.includes("tl")) continue; // tour leader row
+          const cart = {};
+          for(const aid in colMap){
+            const v = (row[colMap[aid]] || "").toString().trim().toLowerCase();
+            if(v === "pagado") cart[aid] = "pagado";
+            else if(v === "reservado") cart[aid] = "reservado";
+          }
+          people.push({ id: uid("p"), name, cart });
+        }
+        resolve(people);
+      }catch(err){
+        reject(err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function renderPicker(){
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+  app.appendChild(el("h1", {}, "Panel de reservas"));
+  app.appendChild(el("p", {class:"sub"}, "Elige un tour o crea uno nuevo"));
+
+  const listBox = el("div", {class:"tourlist"}, el("div", {class:"empty"}, "Cargando tours..."));
+  app.appendChild(listBox);
+
+  const nameInput = el("input", {placeholder:"Nombre del nuevo tour (ej. Grupo Italia Nov)", type:"text"});
+  const createBtn = el("button", {class:"primary", onclick: async () => {
+    const name = nameInput.value.trim();
+    if(!name){ nameInput.style.borderColor = "var(--danger)"; return; }
+    createBtn.disabled = true; createBtn.textContent = "Creando...";
+    try{
+      const tour = await apiCreateTour(name);
+      location.href = location.pathname + "?tour=" + encodeURIComponent(tour.id);
+    }catch(e){
+      createBtn.disabled = false; createBtn.textContent = "Crear tour";
+      alert("No se pudo crear el tour: " + e.message);
+    }
+  }}, "Crear tour");
+
+  app.appendChild(el("div", {class:"section-title"}, "Nuevo tour"));
+  app.appendChild(el("div", {class:"addbar"}, nameInput, createBtn));
+
+  app.appendChild(el("div", {class:"section-title"}, "O importar desde Excel / CSV"));
+  const importNameInput = el("input", {placeholder:"Nombre del tour a importar", type:"text"});
+  const fileInput = el("input", {type:"file", accept:".xlsx,.xls,.csv"});
+  const importStatus = el("div", {class:"importstatus"});
+  const importBtn = el("button", {class:"primary", onclick: async () => {
+    const name = importNameInput.value.trim();
+    const file = fileInput.files[0];
+    if(!name){ importNameInput.style.borderColor = "var(--danger)"; return; }
+    if(!file){ importStatus.textContent = "Elige primero un archivo."; return; }
+    importBtn.disabled = true; importBtn.textContent = "Leyendo archivo...";
+    try{
+      const people = await parseSpreadsheetFile(file);
+      if(people.length === 0){
+        importStatus.textContent = "No encontré ninguna persona en ese archivo (¿tiene una columna 'TITULAR'?).";
+        importBtn.disabled = false; importBtn.textContent = "Importar y crear tour";
+        return;
+      }
+      importBtn.textContent = "Creando tour...";
+      const tour = await apiCreateTour(name);
+      await fetch("/.netlify/functions/tour-data?id=" + encodeURIComponent(tour.id), {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ name, people, receipts: [], checkins: {} })
+      });
+      location.href = location.pathname + "?tour=" + encodeURIComponent(tour.id);
+    }catch(e){
+      importBtn.disabled = false; importBtn.textContent = "Importar y crear tour";
+      importStatus.textContent = "No se pudo leer el archivo: " + e.message;
+    }
+  }}, "Importar y crear tour");
+  app.appendChild(el("div", {class:"addbar"}, importNameInput));
+  app.appendChild(el("div", {class:"addbar"}, fileInput, importBtn));
+  app.appendChild(importStatus);
+
+  try{
+    const tours = await apiGetTours();
+    listBox.innerHTML = "";
+    if(tours.length === 0){
+      listBox.appendChild(el("div", {class:"empty"}, "Aún no hay tours. Crea el primero arriba."));
+    }
+    for(const t of tours){
+      listBox.appendChild(el("div", {class:"tourcard"},
+        el("div", {class:"tourcard-name", onclick: () => { location.href = location.pathname + "?tour=" + encodeURIComponent(t.id); }}, t.name),
+        el("button", {class:"icon", title:"Eliminar tour", onclick: async (e) => {
+          e.stopPropagation();
+          if(!confirm('¿Eliminar el tour "' + t.name + '" y todos sus datos? Esto no se puede deshacer.')) return;
+          await apiDeleteTour(t.id);
+          renderPicker();
+        }}, "✕")
+      ));
+    }
+  }catch(err){
+    renderPickerError(app, err);
+  }
+}
+
+(async function init(){
+  if(!TOUR_ID){
+    mode = "picker";
+    renderPicker();
+    return;
+  }
+  try{
+    state = sanitizeState(await loadState());
+    TOUR_NAME = state.name || "";
+    safeRender();
+  }catch(err){
+    const app = document.getElementById("app");
+    renderPickerError(app, err);
+  }
+})();
+
+</script>
+</body>
+</html>
